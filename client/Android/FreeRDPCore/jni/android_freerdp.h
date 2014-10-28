@@ -54,6 +54,7 @@ JNIEXPORT void JNICALL jni_freerdp_send_key_event(JNIEnv *env, jclass cls, jint 
 JNIEXPORT void JNICALL jni_freerdp_send_unicodekey_event(JNIEnv *env, jclass cls, jint instance, jint keycode);
 JNIEXPORT void JNICALL jni_freerdp_send_clipboard_data(JNIEnv *env, jclass cls, jint instance, jstring jdata);
 JNIEXPORT jstring JNICALL jni_freerdp_get_version(JNIEnv *env, jclass cls);
+JNIEXPORT void JNICALL jni_freerdp_set_router_info(JNIEnv *env, jclass cls, jint instance, jstring jinfo);
 
 #endif /* __ANDROID_FREERDP_H */
 

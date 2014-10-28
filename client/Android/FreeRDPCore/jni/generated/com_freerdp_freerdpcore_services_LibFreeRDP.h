@@ -167,6 +167,14 @@ JNIEXPORT void JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_
 JNIEXPORT jstring JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1get_1version
   (JNIEnv *, jclass);
 
+/*
+ * Class:	  com_freerdp_freerdpcore_services_LibFreeRDP
+ * Method:	  freerdp_set_router_info
+ * Signature: (I/String)V
+ */
+JNIEXPORT void JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1set_1router_1info
+  (JNIEnv *, jclass, jint, jstring);
+
 #ifdef __cplusplus
 }
 #endif

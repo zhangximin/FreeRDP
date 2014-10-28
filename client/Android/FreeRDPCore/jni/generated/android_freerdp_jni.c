@@ -140,3 +140,8 @@ JNIEXPORT jstring JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freer
 	return jni_freerdp_get_version(env, cls);
 }
 
+JNIEXPORT void JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1set_1router_1info
+  (JNIEnv *env, jclass cls, jint instance, jstring info)
+{
+	jni_freerdp_set_router_info(env, cls, instance, info);
+}

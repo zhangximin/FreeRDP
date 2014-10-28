@@ -1050,3 +1050,15 @@ JNIEXPORT jstring JNICALL jni_freerdp_get_version(JNIEnv *env, jclass cls)
 	return (*env)->NewStringUTF(env, GIT_REVISION);
 }
 
+JNIEXPORT void JNICALL jni_freerdp_set_router_info(JNIEnv *env, jclass cls, jint instance, jstring jinfo)
+{
+	freerdp* inst = (freerdp*)instance;
+	rdpSettings * settings = inst->settings;
+
+	const jbyte *info = (*env)->GetStringUTFChars(env, jinfo, NULL);
+
+	settings->LoadBalanceInfo = strdup(info);
+	settings->LoadBalanceInfoLength = strlen((char*) settings->LoadBalanceInfo);
+
+	(*env)->ReleaseStringUTFChars(env, jinfo, info);
+}
