@@ -112,6 +112,15 @@ BOOL rdp_read_share_control_header(wStream* s, UINT16* length, UINT16* type, UIN
 	/* Share Control Header */
 	Stream_Read_UINT16(s, *length); /* totalLength */
 
+	/* If length is 0x8000 then we actually got a flow control PDU that we should ignore
+	 http://msdn.microsoft.com/en-us/library/cc240576.aspx */
+	if (*length == 0x8000)
+	{
+		rdp_read_flow_control_pdu(s, type);
+		*length = 8;	/* Flow control PDU is 8 bytes */
+		return TRUE;
+	}
+
 	if (((size_t) *length - 2) > Stream_GetRemainingLength(s))
 		return FALSE;
 
@@ -170,7 +179,7 @@ void rdp_write_share_data_header(wStream* s, UINT16 length, BYTE type, UINT32 sh
 	Stream_Write_UINT16(s, 0); /* compressedLength (2 bytes) */
 }
 
-static int rdp_security_stream_init(rdpRdp* rdp, wStream* s)
+static int rdp_security_stream_init(rdpRdp* rdp, wStream* s, BOOL sec_header)
 {
 	if (rdp->do_crypt)
 	{
@@ -184,7 +193,7 @@ static int rdp_security_stream_init(rdpRdp* rdp, wStream* s)
 		if (rdp->do_secure_checksum)
 			rdp->sec_flags |= SEC_SECURE_CHECKSUM;
 	}
-	else if (rdp->sec_flags != 0)
+	else if (rdp->sec_flags != 0 || sec_header)
 	{
 		Stream_Seek(s, 4);
 	}
@@ -195,7 +204,7 @@ static int rdp_security_stream_init(rdpRdp* rdp, wStream* s)
 int rdp_init_stream(rdpRdp* rdp, wStream* s)
 {
 	Stream_Seek(s, RDP_PACKET_HEADER_MAX_LENGTH);
-	rdp_security_stream_init(rdp, s);
+	rdp_security_stream_init(rdp, s, FALSE);
 	return 0;
 }
 
@@ -210,7 +219,7 @@ wStream* rdp_send_stream_init(rdpRdp* rdp)
 int rdp_init_stream_pdu(rdpRdp* rdp, wStream* s)
 {
 	Stream_Seek(s, RDP_PACKET_HEADER_MAX_LENGTH);
-	rdp_security_stream_init(rdp, s);
+	rdp_security_stream_init(rdp, s, FALSE);
 	Stream_Seek(s, RDP_SHARE_CONTROL_HEADER_LENGTH);
 	return 0;
 }
@@ -218,7 +227,7 @@ int rdp_init_stream_pdu(rdpRdp* rdp, wStream* s)
 int rdp_init_stream_data_pdu(rdpRdp* rdp, wStream* s)
 {
 	Stream_Seek(s, RDP_PACKET_HEADER_MAX_LENGTH);
-	rdp_security_stream_init(rdp, s);
+	rdp_security_stream_init(rdp, s, FALSE);
 	Stream_Seek(s, RDP_SHARE_CONTROL_HEADER_LENGTH);
 	Stream_Seek(s, RDP_SHARE_DATA_HEADER_LENGTH);
 	return 0;
@@ -261,7 +270,7 @@ wStream* rdp_message_channel_pdu_init(rdpRdp* rdp)
 	wStream* s;
 	s = transport_send_stream_init(rdp->transport, 2048);
 	Stream_Seek(s, RDP_PACKET_HEADER_MAX_LENGTH);
-	rdp_security_stream_init(rdp, s);
+	rdp_security_stream_init(rdp, s, TRUE);
 	return s;
 }
 
@@ -471,7 +480,7 @@ static UINT32 rdp_security_stream_out(rdpRdp* rdp, wStream* s, int length, UINT3
 	return pad;
 }
 
-static UINT32 rdp_get_sec_bytes(rdpRdp* rdp)
+static UINT32 rdp_get_sec_bytes(rdpRdp* rdp, UINT16 sec_flags)
 {
 	UINT32 sec_bytes;
 
@@ -482,7 +491,7 @@ static UINT32 rdp_get_sec_bytes(rdpRdp* rdp)
 		if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
 			sec_bytes += 4;
 	}
-	else if (rdp->sec_flags != 0)
+	else if (rdp->sec_flags != 0 || sec_flags != 0)
 	{
 		sec_bytes = 4;
 	}
@@ -525,7 +534,7 @@ BOOL rdp_send_pdu(rdpRdp* rdp, wStream* s, UINT16 type, UINT16 channel_id)
 	length = Stream_GetPosition(s);
 	Stream_SetPosition(s, 0);
 	rdp_write_header(rdp, s, length, MCS_GLOBAL_CHANNEL_ID);
-	sec_bytes = rdp_get_sec_bytes(rdp);
+	sec_bytes = rdp_get_sec_bytes(rdp, 0);
 	sec_hold = Stream_GetPosition(s);
 	Stream_Seek(s, sec_bytes);
 	rdp_write_share_control_header(s, length - sec_bytes, type, channel_id);
@@ -548,7 +557,7 @@ BOOL rdp_send_data_pdu(rdpRdp* rdp, wStream* s, BYTE type, UINT16 channel_id)
 	length = Stream_GetPosition(s);
 	Stream_SetPosition(s, 0);
 	rdp_write_header(rdp, s, length, MCS_GLOBAL_CHANNEL_ID);
-	sec_bytes = rdp_get_sec_bytes(rdp);
+	sec_bytes = rdp_get_sec_bytes(rdp, 0);
 	sec_hold = Stream_GetPosition(s);
 	Stream_Seek(s, sec_bytes);
 	rdp_write_share_control_header(s, length - sec_bytes, PDU_TYPE_DATA, channel_id);
@@ -572,7 +581,7 @@ BOOL rdp_send_message_channel_pdu(rdpRdp* rdp, wStream* s, UINT16 sec_flags)
 	length = Stream_GetPosition(s);
 	Stream_SetPosition(s, 0);
 	rdp_write_header(rdp, s, length, rdp->mcs->messageChannelId);
-	sec_bytes = rdp_get_sec_bytes(rdp);
+	sec_bytes = rdp_get_sec_bytes(rdp, sec_flags);
 	sec_hold = Stream_GetPosition(s);
 	Stream_Seek(s, sec_bytes);
 	Stream_SetPosition(s, sec_hold);
@@ -853,7 +862,13 @@ int rdp_recv_message_channel_pdu(rdpRdp* rdp, wStream* s)
 	if (securityFlags & SEC_AUTODETECT_REQ)
 	{
 		/* Server Auto-Detect Request PDU */
-		return rdp_recv_autodetect_packet(rdp, s);
+		return rdp_recv_autodetect_request_packet(rdp, s);
+	}
+
+	if (securityFlags & SEC_AUTODETECT_RSP)
+	{
+		/* Client Auto-Detect Response PDU */
+		return rdp_recv_autodetect_response_packet(rdp, s);
 	}
 
 	if (securityFlags & SEC_HEARTBEAT)
@@ -888,10 +903,34 @@ int rdp_recv_out_of_sequence_pdu(rdpRdp* rdp, wStream* s)
 	{
 		return rdp_recv_enhanced_security_redirection_packet(rdp, s);
 	}
+	else if (type == PDU_TYPE_FLOW_RESPONSE ||
+		 type == PDU_TYPE_FLOW_STOP ||
+		 type == PDU_TYPE_FLOW_TEST)
+	{
+		return 0;
+	}
 	else
 	{
 		return -1;
 	}
+}
+
+void rdp_read_flow_control_pdu(wStream* s, UINT16* type)
+{
+	/*
+	 * Read flow control PDU - documented in FlowPDU section in T.128
+	 * http://www.itu.int/rec/T-REC-T.128-199802-S/en
+	 * The specification for the PDU has pad8bits listed BEFORE pduTypeFlow.
+	 * However, so far pad8bits has always been observed to arrive AFTER pduTypeFlow.
+	 * Switched the order of these two fields to match this observation.
+	 */
+	UINT8 pduType;
+	Stream_Read_UINT8(s, pduType);	/* pduTypeFlow */
+	*type = pduType;
+	Stream_Seek_UINT8(s);		/* pad8bits */
+	Stream_Seek_UINT8(s);		/* flowIdentifier */
+	Stream_Seek_UINT8(s);		/* flowNumber */
+	Stream_Seek_UINT16(s);		/* pduSource */
 }
 
 /**
@@ -995,6 +1034,11 @@ static int rdp_recv_tpkt_pdu(rdpRdp* rdp, wStream* s)
 	if (rdp->disconnect)
 		return 0;
  
+	if (rdp->autodetect->bandwidthMeasureStarted)
+	{
+		rdp->autodetect->bandwidthMeasureByteCount += length;
+	}
+
 	if (rdp->settings->DisableEncryption)
 	{
 		if (!rdp_read_security_header(s, &securityFlags))
@@ -1052,6 +1096,11 @@ static int rdp_recv_tpkt_pdu(rdpRdp* rdp, wStream* s)
 				case PDU_TYPE_SERVER_REDIRECTION:
 					return rdp_recv_enhanced_security_redirection_packet(rdp, s);
 					break;
+					
+				case PDU_TYPE_FLOW_RESPONSE:
+				case PDU_TYPE_FLOW_STOP:
+				case PDU_TYPE_FLOW_TEST:
+					break;
 
 				default:
 					WLog_ERR(TAG,  "incorrect PDU type: 0x%04X", pduType);
@@ -1088,6 +1137,11 @@ static int rdp_recv_fastpath_pdu(rdpRdp* rdp, wStream* s)
 	{
 		WLog_ERR(TAG,  "incorrect FastPath PDU header length %d", length);
 		return -1;
+	}
+
+	if (rdp->autodetect->bandwidthMeasureStarted)
+	{
+		rdp->autodetect->bandwidthMeasureByteCount += length;
 	}
 
 	if (fastpath->encryptionFlags & FASTPATH_OUTPUT_ENCRYPTED)
