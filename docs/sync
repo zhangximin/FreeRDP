@@ -1,0 +1,21 @@
+#/bin/bash
+
+git remote -v
+git remote add upstream git@github.com:FreeRDP/FreeRDP.git
+
+git remote -v
+
+echo "Fetching upstream..."
+git fetch upstream
+echo "done"
+
+echo "checkout master"
+git checkout master
+echo "done"
+
+git "merge upstream/master"
+git merge upstream/master
+echo "done"
+
+echo "Remember commit to remote!"
+
