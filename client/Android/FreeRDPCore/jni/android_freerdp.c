@@ -944,7 +944,8 @@ JNIEXPORT void JNICALL jni_freerdp_set_gateway_info(JNIEnv *env, jclass cls, jin
 	settings->GatewayUsername = strdup(gatewayusername);
 	settings->GatewayPassword = strdup(gatewaypassword);
 	settings->GatewayDomain = strdup(gatewaydomain);
-	settings->GatewayUsageMethod = TSC_PROXY_MODE_DIRECT;
+	settings->GatewayUsageMethod = TSC_PROXY_MODE_NONE_DETECT;
+	freerdp_set_gateway_usage_method(settings, (UINT32) TSC_PROXY_MODE_NONE_DETECT);
 	settings->GatewayEnabled = TRUE;
 	settings->GatewayUseSameCredentials = FALSE;
 
