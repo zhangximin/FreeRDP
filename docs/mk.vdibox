@@ -7,8 +7,8 @@ Android
 ./scripts/android_setup_build_env.sh
 
 cmake -DCMAKE_TOOLCHAIN_FILE=cmake/AndroidToolchain.cmake \
--DANDROID_NDK="/Users/simon/currentProjects/android-ndk-r10b" \
--DANDROID_SDK="/Users/simon/currentProjects/adt-bundle-mac-x86_64-20140702/sdk" \
+-DANDROID_NDK="/Users/ximin/Software/android-ndk-r9" \
+-DANDROID_SDK="/Users/ximin/Software/adt-bundle-mac-x86_64-20140702/sdk" \
 -DCMAKE_BUILD_TYPE=Release \
 -DANDROID_BUILD_JAVA=OFF \
 -DWITH_OPENSLES=ON \
