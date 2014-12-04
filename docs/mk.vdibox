@@ -6,11 +6,13 @@ Android
 ------------------------
 ./scripts/android_setup_build_env.sh
 
-cmake -DCMAKE_TOOLCHAIN_FILE=cmake/AndroidToolchain.cmake \
+cmake -DCMAKE_BUILD_TYPE=Release \
+-DCMAKE_TOOLCHAIN_FILE=cmake/AndroidToolchain.cmake \
 -DANDROID_NDK="/Users/ximin/Software/android-ndk-r9" \
 -DANDROID_SDK="/Users/ximin/Software/adt-bundle-mac-x86_64-20140702/sdk" \
 -DCMAKE_BUILD_TYPE=Release \
 -DANDROID_BUILD_JAVA=OFF \
 -DWITH_OPENSLES=ON \
+-DWITH_WIN8=ON \
 -G "Eclipse CDT4 - Unix Makefiles" .
 make
