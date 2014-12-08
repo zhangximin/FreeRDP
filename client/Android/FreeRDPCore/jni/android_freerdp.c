@@ -1080,3 +1080,25 @@ JNIEXPORT void JNICALL jni_freerdp_set_router_info(JNIEnv *env, jclass cls, jint
 
 	(*env)->ReleaseStringUTFChars(env, jinfo, info);
 }
+
+JNIEXPORT void JNICALL jni_freerdp_set_drive_redirection_withname(JNIEnv *env, jclass cls, jint instance, jstring jpath,jstring jname)
+{
+	freerdp* inst = (freerdp*)instance;
+	rdpSettings * settings = inst->settings;
+	char* args[] = {"drive", "Android", ""};
+
+	const jbyte *path = (*env)->GetStringUTFChars(env, jpath, NULL);
+	DEBUG_ANDROID("drive redirect: %s", (char*)path);
+
+	args[2] = (char*)path;
+
+	const jbyte *name = (*env)->GetStringUTFChars(env,jname,NULL);
+	args[1] = (char*)name;
+
+
+	freerdp_client_add_device_channel(settings, 3, args);
+	settings->DeviceRedirection = TRUE;
+
+	(*env)->ReleaseStringUTFChars(env, jpath, path);
+	(*env)->ReleaseStringUTFChars(env, jname, name);
+}

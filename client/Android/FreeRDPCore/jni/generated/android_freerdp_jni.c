@@ -145,3 +145,9 @@ JNIEXPORT void JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_
 {
 	jni_freerdp_set_router_info(env, cls, instance, info);
 }
+
+JNIEXPORT void JNICALL Java_com_freerdp_freerdpcore_services_LibFreeRDP_freerdp_1set_1drive_1redirection_1withname
+(JNIEnv *env, jclass cls, jint inst, jstring path,jstring name)
+{
+	jni_freerdp_set_drive_redirection_withname(env, cls, inst, path,name);
+}

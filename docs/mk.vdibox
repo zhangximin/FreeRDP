@@ -13,7 +13,5 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DCMAKE_BUILD_TYPE=Release \
 -DANDROID_BUILD_JAVA=OFF \
 -DWITH_OPENSLES=ON \
--DWITH_WIN8=ON \
--DWITH_JPEG=ON \
 -G "Eclipse CDT4 - Unix Makefiles" .
 make
