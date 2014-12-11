@@ -1,8 +1,8 @@
 /**
  * FreeRDP: A Remote Desktop Protocol Implementation
- * X11 Graphical Objects
+ * jdisp Virtual Channel
  *
- * Copyright 2011 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2013-2014 Zhang Ximin <zhangximin@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,18 @@
  * limitations under the License.
  */
 
-#ifndef __XF_GRAPHICS_H
-#define __XF_GRAPHICS_H
+#ifndef __JDISP_MAIN_H
+#define __JDISP_MAIN_H
 
-#include "xf_client.h"
-#include "xfreerdp.h"
+#include <freerdp/api.h>
+#include <freerdp/svc.h>
+#ifdef WITH_DEBUG_JDISP
+#define DEBUG_JDISP(fmt, ...) DEBUG_CLASS(JDISP, fmt, ## __VA_ARGS__)
+#else
+#define DEBUG_NULL(fmt, ...) do {} while(0)
+#define DEBUG_JDISP(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
+#endif
 
-void xf_register_graphics(rdpGraphics* graphics);
-void xf_Pointer_SetNull(rdpContext* context);
+typedef struct jdisp_plugin jdispPlugin;
 
-#endif /* __XF_GRAPHICS_H */
+#endif /* __JDISP_MAIN_H */

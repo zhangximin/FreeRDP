@@ -27,6 +27,8 @@
 #include <freerdp/log.h>
 #include <freerdp/locale/keyboard.h>
 
+#include <freerdp/client/jdisp.h>
+
 #include "xf_rail.h"
 #include "xf_window.h"
 #include "xf_cliprdr.h"
@@ -287,6 +289,8 @@ static BOOL xf_event_MotionNotify(xfContext* xfc, XEvent* event, BOOL app)
 {
 	if (xfc->use_xinput)
 		return TRUE;
+
+	update_cursor_position(event->xmotion.x, event->xmotion.y);
 
 	return xf_generic_MotionNotify(xfc, event->xmotion.x, event->xmotion.y,
 			event->xmotion.state, event->xmotion.window, app);

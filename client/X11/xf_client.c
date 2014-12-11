@@ -1487,6 +1487,8 @@ void* xf_thread(void *param)
 		channels_thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) xf_channels_thread, instance, 0, NULL);
 	}
 
+	xf_Pointer_SetNull((rdpContext*)xfc);
+
 	while (!xfc->disconnect && !freerdp_shall_disconnect(instance))
 	{
 		rcount = 0;
