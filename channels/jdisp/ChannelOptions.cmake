@@ -3,6 +3,11 @@ set(OPTION_DEFAULT OFF)
 set(OPTION_CLIENT_DEFAULT ON)
 set(OPTION_SERVER_DEFAULT OFF)
 
+if(ANDROID)
+        set(OPTION_CLIENT_DEFAULT OFF)
+        set(OPTION_SERVER_DEFAULT OFF)
+endif()
+
 define_channel_options(NAME "jdisp" TYPE "static"
 	DESCRIPTION "jdisp Virtual Channel Extension"
 	SPECIFICATIONS ""
