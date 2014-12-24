@@ -8,7 +8,8 @@
 # This script will download and build openssl for iOS (armv7, armv7s) and simulator (i386)
 
 # Settings and definitions
-USER_OS_SDK=""
+#USER_OS_SDK=""
+USER_OS_SDK="iPhoneOS8.1.sdk"
 USER_SIM_SDK=""
 
 OPENSSLVERSION="1.0.0e"
@@ -141,6 +142,7 @@ echo
 buildArch i386
 buildArch armv7
 buildArch armv7s
+buildArch arm64
 
 echo "Combining to unversal binary"
 lipo -create ../../lib/libcrypto_*.a -o ../../lib/libcrypto.a

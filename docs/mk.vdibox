@@ -15,3 +15,9 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 -DWITH_OPENSLES=ON \
 -G "Eclipse CDT4 - Unix Makefiles" .
 make
+
+iOS
+-------------------------
+./scripts/OpenSSL-DownloadAndBuild.command
+
+cmake -DCMAKE_TOOLCHAIN_FILE=cmake/iOSToolchain.cmake -DCMAKE_BUILD_TYPE=Release -DCODE_SIGN_IDENTITY="Zhang Ximin" -GXcode .

@@ -1,11 +1,10 @@
 
 set(OPTION_DEFAULT OFF)
-set(OPTION_CLIENT_DEFAULT ON)
+set(OPTION_CLIENT_DEFAULT OFF)
 set(OPTION_SERVER_DEFAULT OFF)
 
-if(ANDROID)
-        set(OPTION_CLIENT_DEFAULT OFF)
-        set(OPTION_SERVER_DEFAULT OFF)
+if(WITH_X11)
+        set(OPTION_CLIENT_DEFAULT ON)
 endif()
 
 define_channel_options(NAME "jdisp" TYPE "static"
