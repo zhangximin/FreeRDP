@@ -105,6 +105,7 @@ struct xf_context
 	BOOL grab_keyboard;
 	BOOL unobscured;
 	BOOL debug;
+	HANDLE x11event;
 	xfWindow* window;
 	xfAppWindow* appWindow;
 	xfPointer* pointer;
@@ -131,6 +132,13 @@ struct xf_context
 	UINT16 frame_y1;
 	UINT16 frame_x2;
 	UINT16 frame_y2;
+
+	UINT8 red_shift_l;
+	UINT8 red_shift_r;
+	UINT8 green_shift_l;
+	UINT8 green_shift_r;
+	UINT8 blue_shift_l;
+	UINT8 blue_shift_r;
 
 	int XInputOpcode;
 

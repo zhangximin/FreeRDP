@@ -32,6 +32,7 @@ int xf_ResetGraphics(RdpgfxClientContext* context, RDPGFX_RESET_GRAPHICS_PDU* re
 
 	freerdp_client_codecs_reset(xfc->codecs, FREERDP_CODEC_ALL);
 
+	region16_uninit(&(xfc->invalidRegion));
 	region16_init(&(xfc->invalidRegion));
 
 	xfc->graphicsReset = TRUE;
@@ -245,6 +246,8 @@ int xf_SurfaceCommand_RemoteFX(xfContext* xfc, RdpgfxClientContext* context, RDP
 
 	rfx_message_free(xfc->codecs->rfx, message);
 
+	region16_uninit(&clippingRects);
+
 	if (!xfc->inGfxFrame)
 		xf_OutputUpdate(xfc);
 
@@ -350,7 +353,8 @@ int xf_SurfaceCommand_H264(xfContext* xfc, RdpgfxClientContext* context, RDPGFX_
 	DstData = surface->data;
 
 	status = h264_decompress(xfc->codecs->h264, bs->data, bs->length, &DstData,
-			surface->format, surface->scanline , surface->height, meta->regionRects, meta->numRegionRects);
+							 surface->format, surface->scanline , surface->width,
+							 surface->height, meta->regionRects, meta->numRegionRects);
 
 	if (status < 0)
 	{
@@ -488,6 +492,8 @@ int xf_SurfaceCommand_Progressive(xfContext* xfc, RdpgfxClientContext* context, 
 
 		region16_uninit(&updateRegion);
 	}
+
+	region16_uninit(&clippingRects);
 
 	if (!xfc->inGfxFrame)
 		xf_OutputUpdate(xfc);

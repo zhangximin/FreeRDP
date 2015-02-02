@@ -32,7 +32,7 @@
 
 #include "rpc_bind.h"
 
-#define TAG FREERDP_TAG("core.gateway.rpc_bind")
+#define TAG FREERDP_TAG("core.gateway")
 
 /**
  * Connection-Oriented RPC Protocol Client Details:
@@ -103,9 +103,16 @@ int rpc_send_bind_pdu(rdpRpc* rpc)
 	BOOL promptPassword = FALSE;
 	freerdp* instance = (freerdp*) settings->instance;
 
-	DEBUG_RPC("Sending bind PDU");
+	WLog_DBG(TAG, "Sending bind PDU");
+
+	if (rpc->ntlm)
+	{
+		ntlm_free(rpc->ntlm);
+		rpc->ntlm = NULL;
+	}
 
 	rpc->ntlm = ntlm_new();
+
 	if (!rpc->ntlm)
 		return -1;
 
@@ -303,16 +310,18 @@ int rpc_recv_bind_ack_pdu(rdpRpc* rpc, BYTE* buffer, UINT32 length)
 
 int rpc_send_rpc_auth_3_pdu(rdpRpc* rpc)
 {
+	int status;
 	BYTE* buffer;
 	UINT32 offset;
-	UINT32 length;
 	RpcClientCall* clientCall;
 	rpcconn_rpc_auth_3_hdr_t* auth_3_pdu;
 
-	DEBUG_RPC("Sending rpc_auth_3 PDU");
+	WLog_DBG(TAG, "Sending rpc_auth_3 PDU");
 
-	auth_3_pdu = (rpcconn_rpc_auth_3_hdr_t*) malloc(sizeof(rpcconn_rpc_auth_3_hdr_t));
-	ZeroMemory(auth_3_pdu, sizeof(rpcconn_rpc_auth_3_hdr_t));
+	auth_3_pdu = (rpcconn_rpc_auth_3_hdr_t*) calloc(1, sizeof(rpcconn_rpc_auth_3_hdr_t));
+
+	if (!auth_3_pdu)
+		return -1;
 
 	rpc_pdu_header_init(rpc, (rpcconn_hdr_t*) auth_3_pdu);
 
@@ -339,6 +348,9 @@ int rpc_send_rpc_auth_3_pdu(rdpRpc* rpc)
 
 	buffer = (BYTE*) malloc(auth_3_pdu->frag_length);
 
+	if (!buffer)
+		return -1;
+
 	CopyMemory(buffer, auth_3_pdu, 20);
 
 	offset = 20;
@@ -348,17 +360,17 @@ int rpc_send_rpc_auth_3_pdu(rdpRpc* rpc)
 	CopyMemory(&buffer[offset + 8], auth_3_pdu->auth_verifier.auth_value, auth_3_pdu->auth_length);
 	offset += (8 + auth_3_pdu->auth_length);
 
-	length = auth_3_pdu->frag_length;
+	status = (int) auth_3_pdu->frag_length;
 
 	clientCall = rpc_client_call_new(auth_3_pdu->call_id, 0);
 	ArrayList_Add(rpc->client->ClientCallList, clientCall);
 
-	if (rpc_send_enqueue_pdu(rpc, buffer, length) != 0)
-		length = -1;
+	if (rpc_send_enqueue_pdu(rpc, buffer, (UINT32) status) != 0)
+		status = -1;
 
 	free(auth_3_pdu);
 
-	return length;
+	return status;
 }
 
 /**

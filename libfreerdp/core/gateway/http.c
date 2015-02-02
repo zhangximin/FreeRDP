@@ -229,41 +229,46 @@ wStream* http_request_write(HttpContext* http_context, HttpRequest* http_request
 	char** lines;
 	wStream* s;
 	int length = 0;
-	count = 9;
-	lines = (char**)calloc(count, sizeof(char*));
+
+	count = 0;
+	lines = (char**) calloc(32, sizeof(char*));
 
 	if (!lines)
 		return NULL;
 
-	lines[0] = http_encode_header_line(http_request->Method, http_request->URI);
-	lines[1] = http_encode_body_line("Cache-Control", http_context->CacheControl);
-	lines[2] = http_encode_body_line("Connection", http_context->Connection);
-	lines[3] = http_encode_body_line("Pragma", http_context->Pragma);
-	lines[4] = http_encode_body_line("Accept", http_context->Accept);
-	lines[5] = http_encode_body_line("User-Agent", http_context->UserAgent);
-	lines[6] = http_encode_content_length_line(http_request->ContentLength);
-	lines[7] = http_encode_body_line("Host", http_context->Host);
+	lines[count++] = http_encode_header_line(http_request->Method, http_request->URI);
+	lines[count++] = http_encode_body_line("Cache-Control", http_context->CacheControl);
+	lines[count++] = http_encode_body_line("Connection", http_context->Connection);
+	lines[count++] = http_encode_body_line("Pragma", http_context->Pragma);
+	lines[count++] = http_encode_body_line("Accept", http_context->Accept);
+	lines[count++] = http_encode_body_line("User-Agent", http_context->UserAgent);
+	lines[count++] = http_encode_content_length_line(http_request->ContentLength);
+	lines[count++] = http_encode_body_line("Host", http_context->Host);
 
 	/* check that everything went well */
-	for (i = 0; i < 8; i++)
+	for (i = 0; i < count; i++)
 	{
 		if (!lines[i])
 			goto out_free;
 	}
 
-	if (http_request->Authorization != NULL)
+	if (http_request->Authorization)
 	{
-		lines[8] = http_encode_body_line("Authorization", http_request->Authorization);
+		lines[count] = http_encode_body_line("Authorization", http_request->Authorization);
 
-		if (!lines[8])
+		if (!lines[count])
 			goto out_free;
+
+		count++;
 	}
-	else if ((http_request->AuthScheme != NULL) && (http_request->AuthParam != NULL))
+	else if (http_request->AuthScheme && http_request->AuthParam)
 	{
-		lines[8] = http_encode_authorization_line(http_request->AuthScheme, http_request->AuthParam);
+		lines[count] = http_encode_authorization_line(http_request->AuthScheme, http_request->AuthParam);
 
-		if (!lines[8])
+		if (!lines[count])
 			goto out_free;
+
+		count++;
 	}
 
 	for (i = 0; i < count; i++)
@@ -360,17 +365,21 @@ BOOL http_response_parse_header_status_line(HttpResponse* http_response, char* s
 
 BOOL http_response_parse_header_field(HttpResponse* http_response, char* name, char* value)
 {
+	BOOL status = TRUE;
+
 	if (_stricmp(name, "Content-Length") == 0)
 	{
 		http_response->ContentLength = atoi(value);
 	}
 	else if (_stricmp(name, "WWW-Authenticate") == 0)
 	{
-		char* separator;
-		char* authScheme, *authValue;
+		char* separator = NULL;
+		char* authScheme = NULL;
+		char* authValue = NULL;
+
 		separator = strchr(value, ' ');
 
-		if (separator != NULL)
+		if (separator)
 		{
 			/* WWW-Authenticate: Basic realm=""
 			 * WWW-Authenticate: NTLM base64token
@@ -397,10 +406,10 @@ BOOL http_response_parse_header_field(HttpResponse* http_response, char* name, c
 			authValue = NULL;
 		}
 
-		return ListDictionary_Add(http_response->Authenticates, authScheme, authValue);
+		status = ListDictionary_Add(http_response->Authenticates, authScheme, authValue);
 	}
 
-	return TRUE;
+	return status;
 }
 
 BOOL http_response_parse_header(HttpResponse* http_response)
@@ -498,6 +507,7 @@ HttpResponse* http_response_recv(rdpTls* tls)
 	nbytes = 0;
 	length = 10000;
 	content = NULL;
+
 	buffer = calloc(length, 1);
 
 	if (!buffer)
@@ -564,7 +574,7 @@ HttpResponse* http_response_recv(rdpTls* tls)
 
 			if (count)
 			{
-				http_response->lines = (char**)calloc(http_response->count, sizeof(char*));
+				http_response->lines = (char**) calloc(http_response->count, sizeof(char*));
 
 				if (!http_response->lines)
 					goto out_error;
@@ -591,7 +601,7 @@ HttpResponse* http_response_recv(rdpTls* tls)
 
 			if (http_response->bodyLen > 0)
 			{
-				http_response->BodyContent = (BYTE*)malloc(http_response->bodyLen);
+				http_response->BodyContent = (BYTE*) malloc(http_response->bodyLen);
 
 				if (!http_response->BodyContent)
 					goto out_error;
@@ -637,16 +647,19 @@ static void string_free(void* obj1)
 
 HttpResponse* http_response_new()
 {
-	HttpResponse* ret = (HttpResponse*)calloc(1, sizeof(HttpResponse));
+	HttpResponse* ret = (HttpResponse*) calloc(1, sizeof(HttpResponse));
 
 	if (!ret)
 		return NULL;
 
 	ret->Authenticates = ListDictionary_New(FALSE);
+
 	ListDictionary_KeyObject(ret->Authenticates)->fnObjectEquals = strings_equals_nocase;
 	ListDictionary_KeyObject(ret->Authenticates)->fnObjectFree = string_free;
+
 	ListDictionary_ValueObject(ret->Authenticates)->fnObjectEquals = strings_equals_nocase;
 	ListDictionary_ValueObject(ret->Authenticates)->fnObjectFree = string_free;
+
 	return ret;
 }
 
@@ -665,6 +678,7 @@ void http_response_free(HttpResponse* http_response)
 
 	free(http_response->lines);
 	free(http_response->ReasonPhrase);
+
 	ListDictionary_Free(http_response->Authenticates);
 
 	if (http_response->ContentLength > 0)

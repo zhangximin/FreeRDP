@@ -394,7 +394,7 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 		settings->MultifragMaxRequestSize = 0xFFFF;
 
 		settings->GatewayUseSameCredentials = FALSE;
-		settings->GatewayBypassLocal = TRUE;
+		settings->GatewayBypassLocal = FALSE;
 
 		settings->FastPathInput = TRUE;
 		settings->FastPathOutput = TRUE;
@@ -685,6 +685,10 @@ void freerdp_settings_free(rdpSettings* settings)
 		free(settings->RedirectionTsvUrl);
 		free(settings->RemoteAssistanceSessionId);
 		free(settings->AuthenticationServiceClass);
+		free(settings->GatewayHostname);
+		free(settings->GatewayUsername);
+		free(settings->GatewayPassword);
+		free(settings->GatewayDomain);
 		freerdp_target_net_addresses_free(settings);
 		freerdp_device_collection_free(settings);
 		freerdp_static_channel_collection_free(settings);
