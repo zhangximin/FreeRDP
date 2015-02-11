@@ -102,6 +102,7 @@ struct xf_context
 	int scanline_pad;
 	BOOL big_endian;
 	BOOL fullscreen;
+	BOOL decorations;
 	BOOL grab_keyboard;
 	BOOL unobscured;
 	BOOL debug;
@@ -161,6 +162,8 @@ struct xf_context
 	wArrayList* xevents;
 	char* actionScript;
 
+	UINT32 desktopWidth;
+	UINT32 desktopHeight;
 	XSetWindowAttributes attribs;
 	BOOL complex_regions;
 	VIRTUAL_SCREEN vscreen;
@@ -205,7 +208,7 @@ struct xf_context
 	BOOL xrenderAvailable;
 };
 
-void xf_create_window(xfContext* xfc);
+BOOL xf_create_window(xfContext* xfc);
 void xf_toggle_fullscreen(xfContext* xfc);
 void xf_toggle_control(xfContext* xfc);
 BOOL xf_post_connect(freerdp* instance);
