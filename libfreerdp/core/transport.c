@@ -100,31 +100,44 @@ BOOL transport_disconnect(rdpTransport* transport)
 
 	transport_stop(transport);
 
-	if (transport->TlsIn)
-		tls_free(transport->TlsIn);
+	if (transport->tsg)
+	{
+		if (transport->TsgTls)
+		{
+			tls_free(transport->TsgTls);
+			transport->TsgTls = NULL;
+		}
 
-	if (transport->TlsOut != transport->TlsIn)
-		tls_free(transport->TlsOut);
+		tsg_free(transport->tsg);
+		transport->tsg = NULL;
+
+		if (transport->TlsIn)
+			tls_free(transport->TlsIn);
+
+		if (transport->TcpIn)
+			freerdp_tcp_free(transport->TcpIn);
+
+		if (transport->TlsOut)
+			tls_free(transport->TlsOut);
+
+		if (transport->TcpOut)
+			freerdp_tcp_free(transport->TcpOut);
+	}
+	else
+	{
+		if (transport->TlsIn)
+			tls_free(transport->TlsIn);
+
+		if (transport->TcpIn)
+			freerdp_tcp_free(transport->TcpIn);
+	}
 
 	transport->TlsIn = NULL;
 	transport->TlsOut = NULL;
 
-	if (transport->tsg)
-	{
-		tsg_free(transport->tsg);
-		transport->tsg = NULL;
-	}
-
-	if (transport->TcpOut != transport->TcpIn)
-		freerdp_tcp_free(transport->TcpOut);
-
+	transport->TcpIn = NULL;
 	transport->TcpOut = NULL;
 
-	if (transport->TsgTls)
-	{
-		tls_free(transport->TsgTls);
-		transport->TsgTls = NULL;
-	}
 	transport->layer = TRANSPORT_LAYER_TCP;
 
 	return status;
@@ -1163,5 +1176,6 @@ void transport_free(rdpTransport* transport)
 	CloseHandle(transport->connectedEvent);
 	DeleteCriticalSection(&(transport->ReadLock));
 	DeleteCriticalSection(&(transport->WriteLock));
+
 	free(transport);
 }
