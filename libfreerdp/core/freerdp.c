@@ -32,7 +32,7 @@
 
 #include <assert.h>
 
-#include <winpr/crt.h>
+#include <winpr/string.h>
 #include <winpr/stream.h>
 #include <winpr/wtsapi.h>
 
@@ -148,7 +148,9 @@ BOOL freerdp_connect(freerdp* instance)
 
 				pcap_get_next_record_header(update->pcap_rfx, &record);
 
-				s = StreamPool_Take(rdp->transport->ReceivePool, record.length);
+				if (!(s = StreamPool_Take(rdp->transport->ReceivePool, record.length)))
+					break;
+
 				record.data = Stream_Buffer(s);
 
 				pcap_get_next_record_content(update->pcap_rfx, &record);
@@ -392,6 +394,25 @@ void freerdp_get_version(int* major, int* minor, int* revision)
 		*revision = FREERDP_VERSION_REVISION;
 }
 
+const char* freerdp_get_version_string(void)
+{
+	return FREERDP_VERSION_FULL;
+}
+
+const char* freerdp_get_build_date(void)
+{
+	static char build_date[64];
+
+	sprintf_s(build_date, sizeof(build_date), "%s %s", __DATE__, __TIME__);
+
+	return build_date;
+}
+
+const char* freerdp_get_build_revision(void)
+{
+	return GIT_REVISION;
+}
+
 static wEventType FreeRDP_Events[] =
 {
 	DEFINE_EVENT_ENTRY(WindowStateChange)
@@ -421,8 +442,9 @@ int freerdp_context_new(freerdp* instance)
 	rdpRdp* rdp;
 	rdpContext* context;
 
-	instance->context = (rdpContext*) malloc(instance->ContextSize);
-	ZeroMemory(instance->context, instance->ContextSize);
+	instance->context = (rdpContext*) calloc(1, instance->ContextSize);
+	if (!instance->context)
+		return -1;
 
 	context = instance->context;
 	context->instance = instance;
@@ -431,16 +453,27 @@ int freerdp_context_new(freerdp* instance)
 	context->settings = instance->settings;
 
 	context->pubSub = PubSub_New(TRUE);
+	if(!context->pubSub)
+		goto out_error_pubsub;
 	PubSub_AddEventTypes(context->pubSub, FreeRDP_Events, sizeof(FreeRDP_Events) / sizeof(wEventType));
 
 	context->metrics = metrics_new(context);
+	if (!context->metrics)
+		goto out_error_metrics_new;
+
 	rdp = rdp_new(context);
+	if (!rdp)
+		goto out_error_rdp_new;
+
 	instance->input = rdp->input;
 	instance->update = rdp->update;
 	instance->settings = rdp->settings;
 	instance->autodetect = rdp->autodetect;
 
 	context->graphics = graphics_new(context);
+	if(!context->graphics)
+		goto out_error_graphics_new;
+
 	context->rdp = rdp;
 
 	context->input = instance->input;
@@ -461,8 +494,17 @@ int freerdp_context_new(freerdp* instance)
 	update_register_client_callbacks(rdp->update);
 
 	IFCALL(instance->ContextNew, instance, instance->context);
-
 	return 0;
+
+out_error_graphics_new:
+	rdp_free(rdp);
+out_error_rdp_new:
+	metrics_free(context->metrics);
+out_error_metrics_new:
+	PubSub_Free(context->pubSub);
+out_error_pubsub:
+	free(instance->context);
+	return -1;
 }
 
 /** Deallocator function for a rdp context.
@@ -511,10 +553,61 @@ UINT32 freerdp_get_last_error(rdpContext* context)
 	return context->LastError;
 }
 
+const char* freerdp_get_last_error_name(UINT32 code)
+{
+	const char *name = NULL;
+	const UINT32 cls = GET_FREERDP_ERROR_CLASS(code);
+	const UINT32 type = GET_FREERDP_ERROR_TYPE(code);
+
+	switch(cls)
+	{
+		case FREERDP_ERROR_ERRBASE_CLASS:
+			name = freerdp_get_error_base_name(type);
+			break;
+		case FREERDP_ERROR_ERRINFO_CLASS:
+			name = freerdp_get_error_info_name(type);
+			break;
+		case FREERDP_ERROR_CONNECT_CLASS:
+			name = freerdp_get_error_connect_name(type);
+			break;
+		default:
+			name = "Unknown error class";
+			break;
+	}
+
+	return name;
+}
+
+const char* freerdp_get_last_error_string(UINT32 code)
+{
+	const char* string = NULL;
+	const UINT32 cls = GET_FREERDP_ERROR_CLASS(code);
+	const UINT32 type = GET_FREERDP_ERROR_TYPE(code);
+
+	switch(cls)
+	{
+		case FREERDP_ERROR_ERRBASE_CLASS:
+			string = freerdp_get_error_base_string(type);
+			break;
+		case FREERDP_ERROR_ERRINFO_CLASS:
+			string = freerdp_get_error_info_string(type);
+			break;
+		case FREERDP_ERROR_CONNECT_CLASS:
+			string = freerdp_get_error_connect_string(type);
+			break;
+		default:
+			string = "Unknown error class";
+			break;
+	}
+
+	return string;
+}
+
 void freerdp_set_last_error(rdpContext* context, UINT32 lastError)
 {
 	if (lastError)
-		WLog_ERR(TAG, "freerdp_set_last_error 0x%04X", lastError);
+		WLog_ERR(TAG, "freerdp_set_last_error %s [0x%04X]",
+			freerdp_get_last_error_name(lastError), lastError);
 
 	context->LastError = lastError;
 
@@ -581,15 +674,14 @@ freerdp* freerdp_new()
 {
 	freerdp* instance;
 
-	instance = (freerdp*) malloc(sizeof(freerdp));
+	instance = (freerdp*) calloc(1, sizeof(freerdp));
 
-	if (instance)
-	{
-		ZeroMemory(instance, sizeof(freerdp));
-		instance->ContextSize = sizeof(rdpContext);
-		instance->SendChannelData = freerdp_send_channel_data;
-		instance->ReceiveChannelData = freerdp_channels_data;
-	}
+	if (!instance)
+		return NULL;
+
+	instance->ContextSize = sizeof(rdpContext);
+	instance->SendChannelData = freerdp_send_channel_data;
+	instance->ReceiveChannelData = freerdp_channels_data;
 
 	return instance;
 }

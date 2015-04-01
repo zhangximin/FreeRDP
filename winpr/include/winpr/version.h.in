@@ -1,8 +1,9 @@
 /**
  * FreeRDP: A Remote Desktop Protocol Implementation
- * Error Info
+ * Version includes
  *
- * Copyright 2011 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2013 Thincast Technologies GmbH
+ * Copyright 2013 Bernhard Miklautz <bernhard.miklautz@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,20 +17,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef _WINPR_VERSION_H_
+#define _WINPR_VERSION_H_
 
-#ifndef __ERRINFO_H
-#define __ERRINFO_H
+#define WINPR_VERSION_MAJOR ${WINPR_VERSION_MAJOR}
+#define WINPR_VERSION_MINOR ${WINPR_VERSION_MINOR}
+#define WINPR_VERSION_REVISION ${WINPR_VERSION_REVISION}
+#define WINPR_VERSION_SUFFIX "${WINPR_VERSION_SUFFIX}"
+#define WINPR_API_VERSION "${WINPR_API_VERSION}"
+#define WINPR_VERSION "${WINPR_VERSION}"
+#define WINPR_VERSION_FULL "${WINPR_VERSION_FULL}"
+#define GIT_REVISION "${GIT_REVISION}"
 
-#include <freerdp/freerdp.h>
-
-struct _ERRINFO
-{
-	UINT32 code;
-	char* name;
-	char* info;
-};
-typedef struct _ERRINFO ERRINFO;
-
-void rdp_print_errinfo(UINT32 code);
-
-#endif
+#endif // _WINPR_VERSION_H_
