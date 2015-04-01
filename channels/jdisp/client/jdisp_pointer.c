@@ -159,7 +159,7 @@ int update_uncompressed_cursor_image(lzo_byte *data, int size)
 		return -1;
 	} 
 
-	g2d_clear_cursor(&cursor); /* clear cursor from framebuffer */
+	jdisp_g2d_clear_cursor(&cursor); /* clear cursor from framebuffer */
 
 	/* convert to big endian */
 	q = p = (unsigned char *)data;
@@ -205,7 +205,7 @@ int update_uncompressed_cursor_image(lzo_byte *data, int size)
 	else
 	  return -1;
 
-	g2d_cursor(&cursor); /* draw cursor to framebuffer */
+	jdisp_g2d_cursor(&cursor); /* draw cursor to framebuffer */
 
 	return 0;
 }
@@ -301,12 +301,12 @@ int update_cursor_position(int x, int y)
 		return -1;
 	}
 
-	g2d_clear_cursor(&cursor);
+	jdisp_g2d_clear_cursor(&cursor);
 
 	cursor.hot.x = x;
 	cursor.hot.y = y;
 	
-	g2d_cursor(&cursor);
+	jdisp_g2d_cursor(&cursor);
 
 	return 0;
 }

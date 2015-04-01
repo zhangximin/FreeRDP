@@ -309,7 +309,7 @@ static BOOL jpeg_decode_mxc(jdispPlugin* jdisp) {
 	BYTE* input;
 	int input_size, x, y, err;
 
-	err = mxc_jpegdec_open();
+	err = jdisp_jpegdec_open();
 	if (err)
 		return FALSE;
 
@@ -318,12 +318,12 @@ static BOOL jpeg_decode_mxc(jdispPlugin* jdisp) {
 	x = jdisp->jpeg_rect.x;
 	y = jdisp->jpeg_rect.y;
 
-	err = mxc_jpeg_decode((Uint32)input, input_size, x, y);
+	err = jdisp_jpeg_decode((Uint32)input, input_size, x, y);
 	if (err) {
 		return FALSE;
 	}
 
-	err = mxc_jpegdec_close();
+	err = jdisp_jpegdec_close();
 	if (err)
 		return FALSE;
 
@@ -376,7 +376,7 @@ static BOOL jpeg_decode(jdispPlugin* jdisp) {
 	dst = jdisp_image_convert_24to32bpp(output, NULL, jdisp->jpeg_rect.w,
 			jdisp->jpeg_rect.h);
 	output_length = input_width * input_height * 4;
-	g2d_rgbcopy((Uint32) dst, output_length, jdisp->jpeg_rect.w,
+	jdisp_g2d_rgbcopy((Uint32) dst, output_length, jdisp->jpeg_rect.w,
 			jdisp->jpeg_rect.h, jdisp->jpeg_rect.x, jdisp->jpeg_rect.y);
 	free(output);
 	free(dst);
@@ -813,15 +813,15 @@ static void jdisp_virtual_channel_event_connected(jdispPlugin* plugin,
 	plugin->jpeg = Stream_New(NULL, MAX_JPEG_FILE);
 	Stream_Zero(plugin->jpeg, MAX_JPEG_FILE);
 
-	err = mxc_jpegdec_init();
+	err = jdisp_jpegdec_init();
 	if (err) {
-		DEBUG_JDISP("mxc_jpegdec_init failed\n");
+		DEBUG_JDISP("jdisp_jpegdec_init failed\n");
 		exit(0);
 	}
 
-	err = g2d_init();
+	err = jdisp_g2d_init();
 	if (err) {
-		DEBUG_JDISP("g2d_init failed\n");
+		DEBUG_JDISP("jdisp_g2d_init failed\n");
 		exit(0);
 	}
 
@@ -842,8 +842,8 @@ static void jdisp_virtual_channel_event_terminated(jdispPlugin* jdisp) {
 	Stream_Free(jdisp->jpeg, TRUE);
 
 	update_cursor_uninit();
-	g2d_uninit();
-	mxc_jpegdec_uninit();
+	jdisp_g2d_uninit();
+	jdisp_jpegdec_uninit();
 
 	jdisp->channelEntryPoints.pVirtualChannelClose(jdisp->OpenHandle);
 

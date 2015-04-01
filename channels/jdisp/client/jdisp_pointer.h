@@ -19,9 +19,9 @@
 #define JDISP_DATA_COMPRESSED		1
 #define JDISP_DATA_UNCOMPRESSED	0
 
-int update_cursor_status(char *data, int size, int compressed);
-int update_cursor_position(int x, int y);
-int update_cursor_init();
-int update_cursor_uninit();
+//int update_cursor_status(char *data, int size, int compressed);
+//int update_cursor_position(int x, int y);
+//int update_cursor_init();
+//int update_cursor_uninit();
 
 #endif /* __JDISP_POINTER_H */
