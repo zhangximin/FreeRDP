@@ -318,7 +318,7 @@ static BOOL jpeg_decode_mxc(jdispPlugin* jdisp) {
 	x = jdisp->jpeg_rect.x;
 	y = jdisp->jpeg_rect.y;
 
-	err = jdisp_jpeg_decode((Uint32)input, input_size, x, y);
+	err = jdisp_jpeg_decode((uint32_t)input, input_size, x, y);
 	if (err) {
 		return FALSE;
 	}
@@ -376,7 +376,7 @@ static BOOL jpeg_decode(jdispPlugin* jdisp) {
 	dst = jdisp_image_convert_24to32bpp(output, NULL, jdisp->jpeg_rect.w,
 			jdisp->jpeg_rect.h);
 	output_length = input_width * input_height * 4;
-	jdisp_g2d_rgbcopy((Uint32) dst, output_length, jdisp->jpeg_rect.w,
+	jdisp_g2d_rgbcopy((uint32_t) dst, output_length, jdisp->jpeg_rect.w,
 			jdisp->jpeg_rect.h, jdisp->jpeg_rect.x, jdisp->jpeg_rect.y);
 	free(output);
 	free(dst);
