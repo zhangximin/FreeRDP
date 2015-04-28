@@ -576,10 +576,12 @@ int transport_write(rdpTransport* transport, wStream* s)
 {
 	int length;
 	int status = -1;
+	int writtenlength = 0;
 
 	EnterCriticalSection(&(transport->WriteLock));
 
 	length = Stream_GetPosition(s);
+	writtenlength = length;
 	Stream_SetPosition(s, 0);
 
 	if (length > 0)
@@ -598,16 +600,17 @@ int transport_write(rdpTransport* transport, wStream* s)
 			 * is a SSL or TSG BIO in the chain.
 			 */
 			if (!BIO_should_retry(transport->frontBio))
-				return status;
+				goto out_cleanup;
 
 			/* non-blocking can live with blocked IOs */
 			if (!transport->blocking)
-				return status;
+				goto out_cleanup;
 
 			if (BIO_wait_write(transport->frontBio, 100) < 0)
 			{
 				WLog_ERR(TAG, "error when selecting for write");
-				return -1;
+				status = -1;
+				goto out_cleanup;
 			}
 
 			continue;
@@ -620,13 +623,15 @@ int transport_write(rdpTransport* transport, wStream* s)
 				if (BIO_wait_write(transport->frontBio, 100) < 0)
 				{
 					WLog_ERR(TAG, "error when selecting for write");
-					return -1;
+					status = -1;
+					goto out_cleanup;
 				}
 
 				if (BIO_flush(transport->frontBio) < 1)
 				{
 					WLog_ERR(TAG, "error when flushing outputBuffer");
-					return -1;
+					status = -1;
+					goto out_cleanup;
 				}
 			}
 		}
@@ -634,6 +639,9 @@ int transport_write(rdpTransport* transport, wStream* s)
 		length -= status;
 		Stream_Seek(s, status);
 	}
+	transport->written += writtenlength;
+
+out_cleanup:
 
 	if (status < 0)
 	{
@@ -648,25 +656,38 @@ int transport_write(rdpTransport* transport, wStream* s)
 	return status;
 }
 
-UINT32 transport_get_event_handles(rdpTransport* transport, HANDLE* events)
+DWORD transport_get_event_handles(rdpTransport* transport, HANDLE* events, DWORD count)
 {
-	UINT32 nCount = 0;
+	DWORD nCount = 0;
+	DWORD tmp;
 
 	if (!transport->GatewayEnabled)
 	{
-		if (events)
+		if (events && (nCount < count))
+		{
 			BIO_get_event(transport->frontBio, &events[nCount]);
-		nCount++;
+			nCount++;
+		}
 	}
 	else
 	{
 		if (transport->rdg)
 		{
-			nCount += rdg_get_event_handles(transport->rdg, events);
+			tmp = rdg_get_event_handles(transport->rdg, events, nCount - count);
+
+			if (tmp == 0)
+				return 0;
+
+			nCount = tmp;
 		}
 		else if (transport->tsg)
 		{
-			nCount += tsg_get_event_handles(transport->tsg, events);
+			tmp = tsg_get_event_handles(transport->tsg, events, nCount - count);
+
+			if (tmp == 0)
+				return 0;
+
+			nCount = tmp;
 		}
 	}
 
@@ -675,16 +696,17 @@ UINT32 transport_get_event_handles(rdpTransport* transport, HANDLE* events)
 
 void transport_get_fds(rdpTransport* transport, void** rfds, int* rcount)
 {
-	UINT32 index;
-	UINT32 nCount;
+	DWORD index;
+	DWORD nCount;
 	HANDLE events[64];
 
-	nCount = transport_get_event_handles(transport, events);
+	nCount = transport_get_event_handles(transport, events, 64);
+
+	*rcount = nCount;
 
 	for (index = 0; index < nCount; index++)
 	{
-		rfds[*rcount] = GetEventWaitObject(events[index]);
-		(*rcount)++;
+		rfds[index] = GetEventWaitObject(events[index]);
 	}
 }
 
@@ -850,7 +872,7 @@ static void* transport_client_thread(void* arg)
 	rdpRdp* rdp = context->rdp;
 
 	WLog_DBG(TAG, "Starting transport thread");
-	
+
 	nCount = 0;
 	handles[nCount++] = transport->stopEvent;
 	handles[nCount++] = transport->connectedEvent;
@@ -868,10 +890,16 @@ static void* transport_client_thread(void* arg)
 
 	while (1)
 	{
-		nCount = 0;
+		nCount = freerdp_get_event_handles(context, &handles[nCount], 64);
+
+		if (nCount == 0)
+		{
+			WLog_ERR(TAG, "freerdp_get_event_handles failed");
+			break;
+		}
+
 		handles[nCount++] = transport->stopEvent;
-		nCount += freerdp_get_event_handles(context, &handles[nCount]);
-		
+
 		status = WaitForMultipleObjects(nCount, handles, FALSE, INFINITE);
 
 		if (transport->layer == TRANSPORT_LAYER_CLOSED)

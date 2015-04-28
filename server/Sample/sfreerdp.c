@@ -157,8 +157,6 @@ static void test_peer_draw_background(freerdp_peer* client)
 	if (!client->settings->RemoteFxCodec && !client->settings->NSCodec)
 		return;
 
-	test_peer_begin_frame(client);
-
 	s = test_peer_stream_init(context);
 
 	rect.x = 0;
@@ -167,13 +165,18 @@ static void test_peer_draw_background(freerdp_peer* client)
 	rect.height = client->settings->DesktopHeight;
 
 	size = rect.width * rect.height * 3;
-	rgb_data = malloc(size);
+	if (!(rgb_data = malloc(size)))
+		return;
+
 	memset(rgb_data, 0xA0, size);
 
 	if (client->settings->RemoteFxCodec)
 	{
-		rfx_compose_message(context->rfx_context, s,
-			&rect, 1, rgb_data, rect.width, rect.height, rect.width * 3);
+		if (!rfx_compose_message(context->rfx_context, s,
+			&rect, 1, rgb_data, rect.width, rect.height, rect.width * 3))
+		{
+			goto out;
+		}
 		cmd->codecID = client->settings->RemoteFxCodecId;
 	}
 	else
@@ -192,11 +195,13 @@ static void test_peer_draw_background(freerdp_peer* client)
 	cmd->height = rect.height;
 	cmd->bitmapDataLength = Stream_GetPosition(s);
 	cmd->bitmapData = Stream_Buffer(s);
+
+	test_peer_begin_frame(client);
 	update->SurfaceBits(update->context, cmd);
-
-	free(rgb_data);
-
 	test_peer_end_frame(client);
+
+out:
+	free(rgb_data);
 }
 
 static void test_peer_load_icon(freerdp_peer* client)
@@ -555,12 +560,13 @@ BOOL tf_peer_activate(freerdp_peer* client)
 	return TRUE;
 }
 
-void tf_peer_synchronize_event(rdpInput* input, UINT32 flags)
+BOOL tf_peer_synchronize_event(rdpInput* input, UINT32 flags)
 {
 	WLog_DBG(TAG, "Client sent a synchronize event (flags:0x%X)", flags);
+	return TRUE;
 }
 
-void tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
+BOOL tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 {
 	freerdp_peer* client = input->context->peer;
 	rdpUpdate* update = client->update;
@@ -613,25 +619,29 @@ void tf_peer_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 	{
 
 	}
+	return TRUE;
 }
 
-void tf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
+BOOL tf_peer_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code)
 {
 	WLog_DBG(TAG, "Client sent a unicode keyboard event (flags:0x%X code:0x%X)", flags, code);
+	return TRUE;
 }
 
-void tf_peer_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
+BOOL tf_peer_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	//WLog_DBG(TAG, "Client sent a mouse event (flags:0x%X pos:%d,%d)", flags, x, y);
 	test_peer_draw_icon(input->context->peer, x + 10, y);
+	return TRUE;
 }
 
-void tf_peer_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
+BOOL tf_peer_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y)
 {
 	//WLog_DBG(TAG, "Client sent an extended mouse event (flags:0x%X pos:%d,%d)", flags, x, y);
+	return TRUE;
 }
 
-static void tf_peer_refresh_rect(rdpContext* context, BYTE count, RECTANGLE_16* areas)
+static BOOL tf_peer_refresh_rect(rdpContext* context, BYTE count, RECTANGLE_16* areas)
 {
 	BYTE i;
 	WLog_DBG(TAG, "Client requested to refresh:");
@@ -640,9 +650,10 @@ static void tf_peer_refresh_rect(rdpContext* context, BYTE count, RECTANGLE_16* 
 	{
 		WLog_DBG(TAG, "  (%d, %d) (%d, %d)", areas[i].left, areas[i].top, areas[i].right, areas[i].bottom);
 	}
+	return TRUE;
 }
 
-static void tf_peer_suppress_output(rdpContext* context, BYTE allow, RECTANGLE_16* area)
+static BOOL tf_peer_suppress_output(rdpContext* context, BYTE allow, RECTANGLE_16* area)
 {
 	if (allow > 0)
 	{
@@ -652,16 +663,14 @@ static void tf_peer_suppress_output(rdpContext* context, BYTE allow, RECTANGLE_1
 	{
 		WLog_DBG(TAG, "Client minimized and suppress output.");
 	}
+	return TRUE;
 }
 
 static void* test_peer_mainloop(void* arg)
 {
-	int i;
-	int fds;
-	int max_fds;
-	int rcount;
-	void* rfds[32];
-	fd_set rfds_set;
+	HANDLE handles[32];
+	DWORD count;
+	DWORD status;
 	testPeerContext* context;
 	freerdp_peer* client = (freerdp_peer*) arg;
 
@@ -704,59 +713,16 @@ static void* test_peer_mainloop(void* arg)
 
 	while (1)
 	{
-		rcount = 0;
+		count = 0;
+		handles[count++] = client->GetEventHandle(client);
+		handles[count++] = WTSVirtualChannelManagerGetEventHandle(context->vcm);
 
-		memset(rfds, 0, sizeof(rfds));
-		if (client->GetFileDescriptor(client, rfds, &rcount) != TRUE)
+		status = WaitForMultipleObjects(count, handles, FALSE, INFINITE);
+
+		if (status == WAIT_FAILED)
 		{
-			WLog_ERR(TAG, "Failed to get FreeRDP file descriptor");
+			WLog_ERR(TAG, "WaitForMultipleObjects failed (errno: %d)", errno);
 			break;
-		}
-
-#ifndef _WIN32
-		/* winsock's select() only works with sockets ! */
-		WTSVirtualChannelManagerGetFileDescriptor(context->vcm, rfds, &rcount);
-#endif
-
-		max_fds = 0;
-		FD_ZERO(&rfds_set);
-
-		for (i = 0; i < rcount; i++)
-		{
-			fds = (int)(long)(rfds[i]);
-
-			if (fds > max_fds)
-				max_fds = fds;
-
-			FD_SET(fds, &rfds_set);
-		}
-
-		if (max_fds == 0)
-			break;
-
-		if (select(max_fds + 1, &rfds_set, NULL, NULL, NULL) == -1)
-		{
-#ifdef _WIN32
-			/* error codes set by windows sockets are not made available through errno ! */
-			int wsa_error = WSAGetLastError();
-			if (!((wsa_error == WSAEWOULDBLOCK) ||
-				(wsa_error == WSAEINPROGRESS) ||
-				(wsa_error == WSAEINTR)))
-			{
-				WLog_ERR(TAG, "select failed (WSAGetLastError: %d)", wsa_error);
-				break;
-			}
-#else
-			/* these are not really errors */
-			if (!((errno == EAGAIN) ||
-				(errno == EWOULDBLOCK) ||
-				(errno == EINPROGRESS) ||
-				(errno == EINTR))) /* signal occurred */
-			{
-				WLog_ERR(TAG, "select failed (errno: %d)", errno);
-				break;
-			}
-#endif
 		}
 
 		if (client->CheckFileDescriptor(client) != TRUE)
@@ -784,51 +750,25 @@ static void test_peer_accepted(freerdp_listener* instance, freerdp_peer* client)
 
 static void test_server_mainloop(freerdp_listener* instance)
 {
-	int i;
-	int fds;
-	int max_fds;
-	int rcount;
-	void* rfds[32];
-	fd_set rfds_set;
+	HANDLE handles[32];
+	DWORD count;
+	DWORD status;
 
 	while (1)
 	{
-		rcount = 0;
-
-		memset(rfds, 0, sizeof(rfds));
-		if (instance->GetFileDescriptor(instance, rfds, &rcount) != TRUE)
+		count = instance->GetEventHandles(instance, handles, 32);
+		if (0 == count)
 		{
-			WLog_ERR(TAG, "Failed to get FreeRDP file descriptor");
+			WLog_ERR(TAG, "Failed to get FreeRDP event handles");
 			break;
 		}
 
-		max_fds = 0;
-		FD_ZERO(&rfds_set);
+		status = WaitForMultipleObjects(count, handles, FALSE, INFINITE);
 
-		for (i = 0; i < rcount; i++)
+		if (WAIT_FAILED == status)
 		{
-			fds = (int)(long)(rfds[i]);
-
-			if (fds > max_fds)
-				max_fds = fds;
-
-			FD_SET(fds, &rfds_set);
-		}
-
-		if (max_fds == 0)
+			WLog_ERR(TAG, "select failed");
 			break;
-
-		if (select(max_fds + 1, &rfds_set, NULL, NULL, NULL) == -1)
-		{
-			/* these are not really errors */
-			if (!((errno == EAGAIN) ||
-				(errno == EWOULDBLOCK) ||
-				(errno == EINPROGRESS) ||
-				(errno == EINTR))) /* signal occurred */
-			{
-				WLog_ERR(TAG, "select failed");
-				break;
-			}
 		}
 
 		if (instance->CheckFileDescriptor(instance) != TRUE)

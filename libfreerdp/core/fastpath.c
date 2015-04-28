@@ -733,6 +733,8 @@ wStream* fastpath_input_pdu_init_header(rdpFastPath* fastpath)
 	rdp = fastpath->rdp;
 
 	s = transport_send_stream_init(rdp->transport, 256);
+	if (!s)
+		return NULL;
 
 	Stream_Seek(s, 3); /* fpInputHeader, length1 and length2 */
 
@@ -757,6 +759,8 @@ wStream* fastpath_input_pdu_init(rdpFastPath* fastpath, BYTE eventFlags, BYTE ev
 	rdp = fastpath->rdp;
 
 	s = fastpath_input_pdu_init_header(fastpath);
+	if (!s)
+		return NULL;
 	Stream_Write_UINT8(s, eventFlags | (eventCode << 5)); /* eventHeader (1 byte) */
 
 	return s;
@@ -817,23 +821,28 @@ BOOL fastpath_send_multiple_input_pdu(rdpFastPath* fastpath, wStream* s, int iNu
 			Stream_Write_UINT8(s, 0x1); /* TSFIPS_VERSION 1*/
 			Stream_Write_UINT8(s, pad); /* padding */
 
-			security_hmac_signature(fpInputEvents, fpInputEvents_length, Stream_Pointer(s), rdp);
+			if (!security_hmac_signature(fpInputEvents, fpInputEvents_length, Stream_Pointer(s), rdp))
+				return FALSE;
 
 			if (pad)
 				memset(fpInputEvents + fpInputEvents_length, 0, pad);
 
-			security_fips_encrypt(fpInputEvents, fpInputEvents_length + pad, rdp);
+			if (!security_fips_encrypt(fpInputEvents, fpInputEvents_length + pad, rdp))
+				return FALSE;
 
 			length += pad;
 		}
 		else
 		{
-			if (rdp->sec_flags & SEC_SECURE_CHECKSUM)
-				security_salted_mac_signature(rdp, fpInputEvents, fpInputEvents_length, TRUE, Stream_Pointer(s));
-			else
-				security_mac_signature(rdp, fpInputEvents, fpInputEvents_length, Stream_Pointer(s));
+			BOOL status;
 
-			security_encrypt(fpInputEvents, fpInputEvents_length, rdp);
+			if (rdp->sec_flags & SEC_SECURE_CHECKSUM)
+				status = security_salted_mac_signature(rdp, fpInputEvents, fpInputEvents_length, TRUE, Stream_Pointer(s));
+			else
+				status = security_mac_signature(rdp, fpInputEvents, fpInputEvents_length, Stream_Pointer(s));
+
+			if (!status || !security_encrypt(fpInputEvents, fpInputEvents_length, rdp))
+				return FALSE;
 		}
 	}
 
@@ -864,9 +873,7 @@ BOOL fastpath_send_input_pdu(rdpFastPath* fastpath, wStream* s)
 
 wStream* fastpath_update_pdu_init(rdpFastPath* fastpath)
 {
-	wStream* s;
-	s = transport_send_stream_init(fastpath->rdp->transport, FASTPATH_MAX_PACKET_SIZE);
-	return s;
+	return transport_send_stream_init(fastpath->rdp->transport, FASTPATH_MAX_PACKET_SIZE);
 }
 
 wStream* fastpath_update_pdu_init_new(rdpFastPath* fastpath)
@@ -1021,17 +1028,19 @@ BOOL fastpath_send_update_pdu(rdpFastPath* fastpath, BYTE updateCode, wStream* s
 
 			if (rdp->settings->EncryptionMethods == ENCRYPTION_METHOD_FIPS)
 			{
-				security_hmac_signature(data, dataSize - pad, pSignature, rdp);
+				if (!security_hmac_signature(data, dataSize - pad, pSignature, rdp))
+					return FALSE;
 				security_fips_encrypt(data, dataSize, rdp);
 			}
 			else
 			{
 				if (rdp->sec_flags & SEC_SECURE_CHECKSUM)
-					security_salted_mac_signature(rdp, data, dataSize, TRUE, pSignature);
+					status = security_salted_mac_signature(rdp, data, dataSize, TRUE, pSignature);
 				else
-					security_mac_signature(rdp, data, dataSize, pSignature);
+					status = security_mac_signature(rdp, data, dataSize, pSignature);
 
-				security_encrypt(data, dataSize, rdp);
+				if (!status || !security_encrypt(data, dataSize, rdp))
+					return FALSE;
 			}
 		}
 

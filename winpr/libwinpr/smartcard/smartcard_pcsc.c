@@ -707,7 +707,8 @@ char* PCSC_ConvertReaderNameToWinSCard(const char* name)
 	 */
 	if (!name)
 		return NULL;
-		
+	memset(tokens, 0, sizeof(tokens));
+	
 	length = strlen(name);
 
 	if (length < 10)
@@ -753,7 +754,7 @@ char* PCSC_ConvertReaderNameToWinSCard(const char* name)
 	if ((index < 0) || (slot < 0))
 		return NULL;
 
-	if (*(tokens[ctoken][1] - 1) == ')')
+	if (tokens[ctoken] && tokens[ctoken][1] && *(tokens[ctoken][1] - 1) == ')')
 	{
 		while ((*(tokens[ctoken][0]) != '(') && (ctoken > 0))
 			ctoken--;
@@ -2358,7 +2359,7 @@ WINSCARDAPI LONG WINAPI PCSC_SCardGetAttrib_Internal(SCARDHANDLE hCard, DWORD dw
 WINSCARDAPI LONG WINAPI PCSC_SCardGetAttrib_FriendlyName(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr, LPDWORD pcbAttrLen)
 {
 	int length = 0;
-	char* namePCSC;
+	char* namePCSC = NULL;
 	char* nameWinSCard;
 	DWORD cbAttrLen = 0;
 	char* pbAttrA = NULL;
@@ -2414,6 +2415,7 @@ WINSCARDAPI LONG WINAPI PCSC_SCardGetAttrib_FriendlyName(SCARDHANDLE hCard, DWOR
 	else
 	{
 		friendlyNameA = namePCSC;
+		namePCSC = NULL;
 	}
 
 	if (dwAttrId == SCARD_ATTR_DEVICE_FRIENDLY_NAME_W)
@@ -2781,9 +2783,16 @@ unsigned int determineMacOSXVersion()
 
     mib[0] = CTL_KERN;
     mib[1] = KERN_OSRELEASE;
-    sysctl(mib, 2, NULL, &len, NULL, 0);
+    if (sysctl(mib, 2, NULL, &len, NULL, 0) != 0)
+      return 0;
     kernelVersion = calloc(len, sizeof(char));
-    sysctl(mib, 2, kernelVersion, &len, NULL, 0);
+    if (!kernelVersion)
+      return 0;
+    if (sysctl(mib, 2, kernelVersion, &len, NULL, 0) != 0)
+    {
+      free(kernelVersion);
+      return 0;
+    }
 
     tok = strtok(kernelVersion,".");
     while (tok)
@@ -2955,6 +2964,8 @@ int PCSC_InitializeSCardApi(void)
 	if (nSize)
 	{
 		env = (LPSTR) malloc(nSize);
+		if (!env)
+			return -1;
 		nSize = GetEnvironmentVariableA("WINPR_WINSCARD_LOCK_TRANSACTIONS", env, nSize);
 
 		if (strcmp(env, "1") == 0)
@@ -2971,6 +2982,8 @@ int PCSC_InitializeSCardApi(void)
 #ifdef __MACOSX__
 	g_PCSCModule = LoadLibraryA("/System/Library/Frameworks/PCSC.framework/PCSC");
 	OSXVersion = determineMacOSXVersion();
+	if (OSXVersion == 0)
+		return -1;
 #else
 	g_PCSCModule = LoadLibraryA("libpcsclite.so.1");
 

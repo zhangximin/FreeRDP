@@ -248,7 +248,7 @@ FREERDP_API BOOL freerdp_reconnect(freerdp* instance);
 FREERDP_API BOOL freerdp_get_fds(freerdp* instance, void** rfds, int* rcount, void** wfds, int* wcount);
 FREERDP_API BOOL freerdp_check_fds(freerdp* instance);
 
-FREERDP_API UINT32 freerdp_get_event_handles(rdpContext* context, HANDLE* events);
+FREERDP_API DWORD freerdp_get_event_handles(rdpContext* context, HANDLE* events, DWORD count);
 FREERDP_API BOOL freerdp_check_event_handles(rdpContext* context);
 
 FREERDP_API wMessageQueue* freerdp_get_message_queue(freerdp* instance, DWORD id);
@@ -274,6 +274,8 @@ FREERDP_API UINT32 freerdp_get_last_error(rdpContext* context);
 FREERDP_API const char* freerdp_get_last_error_name(UINT32 error);
 FREERDP_API const char* freerdp_get_last_error_string(UINT32 error);
 FREERDP_API void freerdp_set_last_error(rdpContext* context, UINT32 lastError);
+
+FREERDP_API ULONG freerdp_get_transport_sent(rdpContext* context, BOOL resetCount);
 
 #ifdef __cplusplus
 }
