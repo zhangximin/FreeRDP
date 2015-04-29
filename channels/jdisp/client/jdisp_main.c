@@ -62,6 +62,7 @@
 
 #define MAX_JPEG_FILE	(1024 * 1024 * 4)	/* 4MB */
 #define MAX_PACK_FILE	(1024 * 1024 * 4)	/* 4MB */
+//rk3188	48x48 ~ 8176x8176 (96x32pixels to 8176x8176pixels)
 
 /* jdisp messages */
 #define JDISP_MSG_CONNECT			0xFFFFFF55
@@ -305,9 +306,9 @@ static BOOL get_jpeg_data(jdispPlugin* jdisp) {
 	return TRUE;
 }
 
-static BOOL jpeg_decode_mxc(jdispPlugin* jdisp) {
+static BOOL jpeg_decode_hw(jdispPlugin* jdisp) {
 	BYTE* input;
-	int input_size, x, y, err;
+	int input_size, x, y, err,w,h;
 
 	err = jdisp_jpegdec_open();
 	if (err)
@@ -317,8 +318,10 @@ static BOOL jpeg_decode_mxc(jdispPlugin* jdisp) {
 	input_size = Stream_Length(jdisp->jpeg);
 	x = jdisp->jpeg_rect.x;
 	y = jdisp->jpeg_rect.y;
+	w = jdisp->jpeg_rect.w;
+	h = jdisp->jpeg_rect.h;
 
-	err = jdisp_jpeg_decode((uint32_t)input, input_size, x, y);
+	err = jdisp_jpeg_decode((uint32_t)input, input_size, x, y,w,h);
 	if (err) {
 		return FALSE;
 	}
@@ -606,7 +609,7 @@ static void jdisp_process_receive(jdispPlugin* plugin, wStream* data_in) {
 				if ((jdisp->jpeg_rect.w % 16) == 0
 						&& (jdisp->jpeg_rect.h % 16) == 0
 						&& jdisp->jpeg_rect.w > 32 && jdisp->jpeg_rect.h > 32) {
-					jpeg_decode_mxc(jdisp);
+					jpeg_decode_hw(jdisp);
 				} else {
 			 		jpeg_decode(jdisp);
 				}
