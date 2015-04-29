@@ -24,6 +24,5 @@
 #include "xfreerdp.h"
 
 void xf_register_graphics(rdpGraphics* graphics);
-void xf_Pointer_SetNull(rdpContext* context);
 
 #endif /* __XF_GRAPHICS_H */
