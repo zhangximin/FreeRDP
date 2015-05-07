@@ -45,6 +45,8 @@
 #cmakedefine WITH_JPEG
 #cmakedefine WITH_WIN8
 #cmakedefine WITH_RDPSND_DSOUND
+#cmakedefine WITH_EVENTFD_READ_WRITE
+#cmakedefine HAVE_MATH_C99_LONG_DOUBLE
 
 #cmakedefine WITH_FFMPEG
 #cmakedefine WITH_GSTREAMER_1_0
@@ -88,6 +90,7 @@
 #cmakedefine WITH_DEBUG_RDPEI
 #cmakedefine WITH_DEBUG_TIMEZONE
 #cmakedefine WITH_DEBUG_THREADS
+#cmakedefine WITH_DEBUG_MUTEX
 #cmakedefine WITH_DEBUG_TRANSPORT
 #cmakedefine WITH_DEBUG_WND
 #cmakedefine WITH_DEBUG_X11

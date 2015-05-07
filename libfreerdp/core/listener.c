@@ -180,6 +180,7 @@ static BOOL freerdp_listener_open_local(freerdp_listener* instance, const char* 
 	int sockfd;
 	struct sockaddr_un addr;
 	rdpListener* listener = (rdpListener*) instance->listener;
+	HANDLE hevent;
 
 	sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -213,8 +214,15 @@ static BOOL freerdp_listener_open_local(freerdp_listener* instance, const char* 
 		return FALSE;
 	}
 
+	if (!(hevent = CreateFileDescriptorEvent(NULL, FALSE, FALSE, sockfd)))
+	{
+		WLog_ERR(TAG, "failed to create sockfd event");
+		closesocket((SOCKET) sockfd);
+		return FALSE;
+	}
+
 	listener->sockfds[listener->num_sockfds] = sockfd;
-	listener->events[listener->num_sockfds] = CreateFileDescriptorEvent(NULL, FALSE, FALSE, sockfd);
+	listener->events[listener->num_sockfds] = hevent;
 	listener->num_sockfds++;
 	WLog_INFO(TAG, "Listening on socket %s.", addr.sun_path);
 	return TRUE;
@@ -284,6 +292,7 @@ static BOOL freerdp_listener_check_fds(freerdp_listener* instance)
 	struct sockaddr_storage peer_addr;
 	rdpListener* listener = (rdpListener*) instance->listener;
 	static const BYTE localhost6_bytes[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	BOOL peer_accepted;
 
 	if (listener->num_sockfds < 1)
 		return FALSE;
@@ -292,6 +301,7 @@ static BOOL freerdp_listener_check_fds(freerdp_listener* instance)
 	{
 		peer_addr_size = sizeof(peer_addr);
 		peer_sockfd = accept(listener->sockfds[i], (struct sockaddr*) &peer_addr, &peer_addr_size);
+		peer_accepted = FALSE;
 
 		if (peer_sockfd == -1)
 		{
@@ -340,7 +350,14 @@ static BOOL freerdp_listener_check_fds(freerdp_listener* instance)
 		if (sin_addr)
 			inet_ntop(peer_addr.ss_family, sin_addr, client->hostname, sizeof(client->hostname));
 
-		IFCALL(instance->PeerAccepted, instance, client);
+		IFCALLRET(instance->PeerAccepted, peer_accepted, instance, client);
+
+		if (!peer_accepted)
+		{
+			WLog_ERR(TAG, "PeerAccepted callback failed");
+			closesocket((SOCKET) peer_sockfd);
+			freerdp_peer_free(client);
+		}
 	}
 
 	return TRUE;
