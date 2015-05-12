@@ -13,9 +13,14 @@ echo "checkout master"
 git checkout master
 echo "done"
 
-git "merge upstream/master"
 git merge upstream/master
 echo "done"
 
 echo "Remember commit to remote!"
+
+git push
+
+git checkout vdibox
+git merge master
+git push
 
