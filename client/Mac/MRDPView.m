@@ -693,18 +693,14 @@ DWORD fixKeyCode(DWORD keyCode, unichar keyChar, enum APPLE_KEYBOARD_TYPE type)
 	int i;
 
 	for (i = 0; i < argc; i++)
-	{
-		if (argv[i])
-			free(argv[i]);
-	}
-	
+		free(argv[i]);
+
 	if (!is_connected)
 		return;
-	
+
 	gdi_free(context->instance);
-	
-	if (pixel_data)
-		free(pixel_data);
+
+	free(pixel_data);
 }
 
 - (void) drawRect:(NSRect)rect
@@ -967,9 +963,11 @@ BOOL mac_post_connect(freerdp* instance)
 	//else
 	//	flags |= CLRBUF_16BPP;
 	
-	gdi_init(instance, flags, NULL);
-	gdi = instance->context->gdi;
+	if (!gdi_init(instance, flags, NULL))
+		return FALSE;
 	
+	gdi = instance->context->gdi;
+
 	view->bitmap_context = mac_create_bitmap_context(instance->context);
 	
 	pointer_cache_register_callbacks(instance->update);
@@ -1245,7 +1243,8 @@ BOOL mac_desktop_resize(rdpContext* context)
 	mfc->width = settings->DesktopWidth;
 	mfc->height = settings->DesktopHeight;
 	
-	gdi_resize(context->gdi, mfc->width, mfc->height);
+	if (!gdi_resize(context->gdi, mfc->width, mfc->height))
+		return FALSE;
 	
 	view->bitmap_context = mac_create_bitmap_context(context);
 	if (!view->bitmap_context)
