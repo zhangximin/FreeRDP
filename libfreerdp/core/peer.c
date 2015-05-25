@@ -62,7 +62,7 @@ static HANDLE freerdp_peer_virtual_channel_open(freerdp_peer* client, const char
 		if (!mcsChannel->joined)
 			continue;
 
-		if (strncmp(name, mcsChannel->Name, length) == 0)
+		if (_strnicmp(name, mcsChannel->Name, length) == 0)
 		{
 			joined = TRUE;
 			break;
@@ -635,6 +635,7 @@ BOOL freerdp_peer_context_new(freerdp_peer* client)
 
 	client->context = context;
 
+	context->peer = client;
 	context->ServerMode = TRUE;
 
 	if (!(context->metrics = metrics_new(context)))
@@ -649,7 +650,6 @@ BOOL freerdp_peer_context_new(freerdp_peer* client)
 	client->autodetect = rdp->autodetect;
 
 	context->rdp = rdp;
-	context->peer = client;
 	context->input = client->input;
 	context->update = client->update;
 	context->settings = client->settings;
